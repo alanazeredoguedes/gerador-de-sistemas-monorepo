@@ -18,6 +18,8 @@
 
 O **GDS** recebe um diagrama de classes (entidades, atributos e relacionamentos) e gera automaticamente uma aplicação Symfony 6 completa, com painel administrativo (Sonata Admin), API REST autenticada via JWT, front-end web e ambiente Docker — tudo a partir de um único clique no editor visual.
 
+Aplicação desenvolvida como **Trabalho de Conclusão de Curso** em Sistemas de Informação no **Centro Universitário La Salle do Rio de Janeiro (Unilasalle-RJ)**, em 2022.
+
 Este repositório é o **monorepo unificado** dos quatro componentes do GDS, originalmente publicados em repositórios separados. Um único `docker-compose.yml` orquestra tudo, e o script `./start.sh` provisiona o ambiente de ponta a ponta.
 
 ## Sumário

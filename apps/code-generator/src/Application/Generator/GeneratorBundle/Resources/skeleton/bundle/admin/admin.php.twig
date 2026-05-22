@@ -1,0 +1,94 @@
+<?php
+namespace {{ baseNamespace }}\Admin;
+
+use {{ baseNamespace }}\Entity\{{ className }};
+{% for relationshipClass in namespaceRelationships %}
+use App\Application\{{ packageName }}\{{ relationshipClass }}Bundle\Entity\{{ relationshipClass }};
+{% endfor %}
+
+use App\Application\Project\ContentBundle\Admin\Base\BaseAdmin;
+use Sonata\AdminBundle\Datagrid\DatagridMapper;
+use Sonata\AdminBundle\Admin\AdminInterface;
+use Sonata\AdminBundle\Datagrid\ListMapper;
+use Sonata\AdminBundle\Form\FormMapper;
+use Sonata\AdminBundle\Show\ShowMapper;
+
+/** Components Form */
+use Sonata\DoctrineORMAdminBundle\Filter\ModelFilter;
+use Sonata\AdminBundle\Form\Type\ModelListType;
+{% for type in typeForm %}
+use {{ type }};
+{% endfor %}
+
+final class {{ className }}Admin extends BaseAdmin
+{
+
+    public function toString(object $object): string
+    {
+        return $object instanceof {{ className }} ? $object->get{{ primaryKey[:1]|upper ~ primaryKey[1:] }}().''
+        {% for attr in allAttributes %}{% if attr.attributeSearch %}.' - '.$object->get{{ attr.attributeName[:1]|upper ~ attr.attributeName[1:] }}(){% endif %}{% endfor %}
+
+        : '';
+    }
+
+{#    public function getExportFields()
+    {
+        return array('Código' => 'codigo', 'Nome' => 'nome', 'Descrição' => 'descricao');
+    }#}
+
+
+    protected function configureFormFields(FormMapper $form): void
+    {
+        $form->tab('Geral');
+            $form->with('Informações Gerais');
+
+{% for ff in formFields %}
+{{ ff|raw }}
+{% endfor %}
+            $form->end();
+        $form->end();
+    }
+
+    protected function configureDatagridFilters(DatagridMapper $datagrid): void
+    {
+{% for datagrid in datagridFilters %}
+{{ datagrid|raw }}
+{% endfor %}
+    }
+
+    protected function configureListFields(ListMapper $list): void
+    {
+
+{% for list in listFields %}
+{{ list|raw }}
+
+{% endfor %}
+        $list->add(ListMapper::NAME_ACTIONS, ListMapper::TYPE_ACTIONS, [
+            'actions' => [
+                'show'   => [],
+                'edit'   => [],
+                'delete' => [],
+            ]
+        ]);
+
+    }
+
+    protected function configureShowFields(ShowMapper $show): void
+    {
+        $show->tab('Geral');
+            $show->with('Informações Gerais', [
+                'class'       => 'col-md-12',
+                'box_class'   => 'box box-solid box-primary',
+                'description' => 'Informações Gerais',
+            ]);
+
+{% for show in showFields %}
+{{ show|raw }}
+{% endfor %}
+
+            $show->end();
+        $show->end();
+    }
+
+
+}

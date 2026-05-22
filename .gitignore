@@ -1,0 +1,79 @@
+# =============================================================================
+#  GDS — Gerador de Sistemas · monorepo · .gitignore
+# =============================================================================
+
+# ---- Env / segredos ---------------------------------------------------------
+.env
+.env.local
+.env.*.local
+apps/*/.env.local
+apps/*/.env.*.local
+
+# ---- Saída do code-generator (runtime) --------------------------------------
+output/generated-apps/*
+!output/generated-apps/.gitkeep
+output/downloads/*
+!output/downloads/.gitkeep
+
+# ---- Dependências instaladas ------------------------------------------------
+apps/*/vendor/
+apps/*/node_modules/
+apps/front/dist/
+
+# ---- Build / cache do Symfony ----------------------------------------------
+apps/*/var/cache/
+apps/*/var/log/
+apps/*/var/sessions/
+apps/*/.phpunit.result.cache
+apps/*/.php-cs-fixer.cache
+apps/*/.phpunit.cache/
+
+# ---- Assets / mídia gerados em runtime --------------------------------------
+apps/*/public/bundles/
+apps/*/public/uploads/
+!apps/*/public/uploads/.gitkeep
+
+# ---- JWT keypair (gerado em runtime, NUNCA commitar) ------------------------
+apps/*/config/jwt/*.pem
+apps/*/config/jwt/*.pub
+
+# ---- IDEs / editores --------------------------------------------------------
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+.fleet/
+.zed/
+
+# ---- Assistentes / agentes (configs locais) ----------
+.claude/
+apps/*/.claude/
+CLAUDE.md
+apps/*/CLAUDE.md
+.cursor/
+.continue/
+.aider*
+.github-copilot-instructions.md
+
+# ---- Sistema operacional ----------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ---- Logs avulsos -----------------------------------------------------------
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ---- Cobertura / build artifacts diversos -----------------------------------
+coverage/
+*.tar.gz
+*.tgz

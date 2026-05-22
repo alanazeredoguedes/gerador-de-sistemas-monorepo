@@ -1,0 +1,44 @@
+<?php
+
+namespace {{ baseNamespace }}\Entity;
+
+use {{ baseNamespace }}\Repository\{{ className }}Repository;
+{% for relationshipClass in namespaceRelationships %}
+use App\Application\{{ packageName }}\{{ relationshipClass }}Bundle\Entity\{{ relationshipClass }};
+{% endfor %}
+
+use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
+use Symfony\Component\Validator\Constraints as Assert;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
+use App\Entity\SonataMediaGallery;
+use App\Entity\SonataMediaMedia;
+use Doctrine\ORM\Mapping as ORM;
+use DateTime;
+
+/** Info: {{ description }} */
+#[ORM\Table(name: '{{ tableName }}')]
+#[ORM\Entity(repositoryClass: {{ className }}Repository::class)]
+{% for attribute in uniqueAttributes  %}
+#[UniqueEntity('{{ attribute }}')]
+{% endfor %}
+class {{ className }}
+{
+
+{% for attribute in attributes %}
+{{ attribute|raw }}
+{% endfor %}
+
+    public function __construct()
+    {
+{% for const in construct %}
+        $this->{{ const }} = new ArrayCollection();
+{% endfor %}
+    }
+
+{% for getSet in gettersAndSetters %}
+{{ getSet|raw }}
+
+{% endfor %}
+
+}

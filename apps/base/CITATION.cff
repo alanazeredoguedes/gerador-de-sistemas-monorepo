@@ -1,0 +1,39 @@
+cff-version: 1.2.0
+title: "GDS - Gerador de Sistemas (Base): Template Symfony para sistemas gerados"
+message: "Se você usar este software, por favor cite-o conforme abaixo."
+type: software
+authors:
+  - family-names: "Guedes"
+    given-names: "Alan Azeredo"
+    email: "alanguedesdev@gmail.com"
+    affiliation: "Centro Universitário La Salle do Rio de Janeiro (Unilasalle-RJ)"
+    orcid: "https://orcid.org/0009-0006-7007-2351"
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.20316548
+    description: Concept DOI (always resolves to the latest version)
+  - type: doi
+    value: 10.5281/zenodo.20316549
+    description: DOI for version 1.0.0-tcc-2022
+date-released: 2022-12-15
+version: "1.0.0"
+keywords:
+  - "model-driven development"
+  - "code generation"
+  - "template"
+  - "PHP"
+  - "Symfony"
+  - "Sonata Admin"
+  - "REST API"
+  - "low-code"
+license: MIT
+repository-code: "https://github.com/alanazeredoguedes/gerador-de-sistemas-base"
+abstract: >
+  Template-base (Symfony 6) do GDS — Gerador de Sistemas, plataforma de
+  Model-Driven Development desenvolvida como Trabalho de Conclusão de Curso
+  em Sistemas de Informação na Unilasalle-RJ. Este repositório fornece a
+  estrutura fundacional clonada e adaptada pelo motor de geração de código
+  para cada aplicação produzida pelo GDS, incluindo bundles reusáveis de
+  Segurança/Usuários, Mídia, Conteúdo, Configurações e Admin Sonata, além
+  de um conjunto padronizado de operadores REST de filtragem, ordenação e
+  paginação.

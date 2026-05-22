@@ -1,0 +1,29 @@
+{
+  "name": "gerador-de-sistemas",
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "vite --port 9000",
+    "build": "vite build",
+    "preview": "vite preview --port 4173",
+    "test:unit": "vitest --environment jsdom"
+  },
+  "dependencies": {
+    "@shopify/draggable": "^1.0.0-beta.8",
+    "axios": "^0.27.2",
+    "jquery": "^3.6.0",
+    "sweetalert2": "^11.4.26",
+    "vue": "^3.2.37",
+    "vue-router": "^4.1.2",
+    "vue-select": "^4.0.0-beta.3",
+    "vue-toastify": "^1.8.1",
+    "vuex": "^4.0.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^3.0.1",
+    "@vue/test-utils": "^2.0.2",
+    "jsdom": "^20.0.0",
+    "uuid": "^8.3.2",
+    "vite": "^3.0.1",
+    "vitest": "^0.18.1"
+  }
+}

@@ -1,0 +1,330 @@
+# {{ projectName }}
+
+[![php version](https://img.shields.io/badge/php-v8.1-blue?style=flat&logo=php)](composer.json)
+[![symfony](https://img.shields.io/badge/symfony-6.0-brightgreen.svg?style=flat&logo=symfony)](https://symfony.com/)
+[![sonata admin](https://img.shields.io/badge/sonata%20admin-bundle-blue.svg?style=flat)](https://docs.sonata-project.org/projects/SonataAdminBundle/)
+
+> {{ projectDescription }}
+
+Aplicação gerada automaticamente pelo [**Gerador de Sistemas (GDS)**](https://geradordesistemas.com.br/) — uma plataforma de *Model-Driven Development* que transforma a modelagem objeto-relacional de um sistema (classes, atributos e relacionamentos) em uma aplicação web full-stack pronta para uso, com painel administrativo, API REST e autenticação JWT.
+
+---
+
+## Sumário
+
+1. [Stack](#stack)
+2. [Requisitos](#requisitos)
+3. [Instalação rápida](#instalação-rápida)
+4. [Acessando a aplicação](#acessando-a-aplicação)
+5. [Usuários criados automaticamente](#usuários-criados-automaticamente)
+6. [Estrutura do projeto](#estrutura-do-projeto)
+7. [Entidades geradas](#entidades-geradas)
+8. [Comandos úteis](#comandos-úteis)
+9. [Convenções da API REST](#convenções-da-api-rest)
+10. [Variáveis de ambiente](#variáveis-de-ambiente)
+11. [Solução de problemas](#solução-de-problemas)
+12. [Licença](#licença)
+
+---
+
+## Stack
+
+- **PHP 8.1**
+- **Symfony 6**
+- **Doctrine ORM** (MySQL 8)
+- **Sonata Admin Bundle** — painel administrativo
+- **Lexik JWT Authentication Bundle** — autenticação stateless
+- **Nelmio CORS Bundle** — controle de origem
+- **Docker** + **Docker Compose** — ambiente isolado
+
+## Requisitos
+
+Para executar este projeto em sua máquina, você precisa apenas de:
+
+| Ferramenta | Versão recomendada | Verificação |
+|---|---|---|
+| Docker | 20.10+ | `docker --version` |
+| Docker Compose (plugin) | 2.x | `docker compose version` |
+
+> **Nenhuma instalação local de PHP, Composer ou MySQL é necessária.** Tudo o que o projeto precisa fica isolado dentro dos containers.
+
+## Instalação rápida
+
+```bash
+# 1. Construa a imagem PHP do projeto
+docker compose build app
+
+# 2. Suba o ambiente em background
+docker compose up -d
+
+# 3. Execute o script de inicialização (idempotente — pode rodar mais de uma vez)
+./start_project.sh
+```
+
+O script `start_project.sh` cuida de tudo automaticamente:
+
+1. Sobe os containers `app`, `nginx` e `db`.
+2. Aguarda o MySQL ficar pronto para receber conexões.
+3. Instala as dependências do Composer.
+4. Gera o par de chaves JWT (Lexik).
+5. Ajusta permissões de `var/` e `public/uploads/`.
+6. Cria o banco de dados e aplica o schema (Doctrine).
+7. **Cria os usuários administrador e padrão** (veja abaixo).
+8. Instala assets e limpa o cache.
+
+## Acessando a aplicação
+
+Após o `start_project.sh` finalizar, os seguintes endereços estarão disponíveis:
+
+| Recurso | URL / Porta padrão | Observações |
+|---|---|---|
+| Aplicação web | http://localhost:8080 | Porta configurável via `APP_HOST_PORT` |
+| Painel administrativo | http://localhost:8080/admin | Sonata Admin |
+| API REST | http://localhost:8080/api | Endpoints gerados automaticamente para cada entidade |
+| Login JWT (API) | `POST http://localhost:8080/api/login_check` | Retorna o token JWT |
+| MySQL (acesso externo) | `localhost:3320` | Porta configurável via `MYSQL_HOST_PORT` |
+
+> Caso as portas `8080` ou `3320` já estejam em uso na sua máquina (por exemplo, se o monorepo do GDS estiver rodando junto), ajuste-as no arquivo `.env` do projeto antes de rodar `start_project.sh`.
+
+## Usuários criados automaticamente
+
+O `start_project.sh` cria dois usuários no banco para que você possa entrar no sistema imediatamente após a instalação. **As credenciais abaixo são as do projeto que você acabou de gerar** — guarde-as em local seguro.
+
+### Administrador (Sonata Admin)
+
+| Campo | Valor |
+|---|---|
+| Usuário | `{{ userName }}` |
+| E-mail | `{{ email }}` |
+| Senha | `{{ password }}` |
+| Acesso | `http://localhost:8080/admin` |
+
+### Usuário padrão (API REST / Frontend)
+
+| Campo | Valor |
+|---|---|
+| Usuário | `{{ userName }}` |
+| E-mail | `{{ email }}` |
+| Senha | `{{ password }}` |
+| Acesso | API REST (JWT) e área autenticada da web |
+
+**Obtendo um token JWT:**
+
+```bash
+curl -X POST http://localhost:8080/api/login_check \
+     -H "Content-Type: application/json" \
+     -d '{"username":"{{ email }}","password":"{{ password }}"}'
+```
+
+> A senha foi derivada automaticamente do identificador único deste projeto. Para alterá-la depois da primeira execução, use o painel administrativo ou os comandos `bin/console security:create-admin` / `security:create-user` dentro do container.
+
+## Estrutura do projeto
+
+```
+{{ projectName }}/
+├── bin/                          # Console do Symfony (bin/console)
+├── config/                       # Configurações do framework e bundles
+│   ├── packages/                 # YAML por bundle (doctrine, sonata_admin, security…)
+│   ├── routes/                   # Definições de rotas
+│   ├── bundles.php               # Registro de bundles ativos
+│   └── services.yaml             # Container de serviços
+├── docker/                       # Dockerfiles e configurações dos containers
+│   ├── mysql/                    # Volume persistente do banco
+│   ├── nginx/                    # Configuração do reverse proxy
+│   └── php/                      # Dockerfile do container PHP
+├── migrations/                   # Migrations do Doctrine
+├── public/                       # DocumentRoot exposto pelo nginx
+│   ├── index.php                 # Front controller
+│   └── uploads/                  # Mídias enviadas (Sonata Media)
+├── src/
+│   ├── Application/
+│   │   ├── {{ packageName }}/                 # << bundles GERADAS a partir da modelagem
+{% for b in registerBundle %}│   │   │   {% if loop.last %}└──{% else %}├──{% endif %} {{ b.bundleName }}/
+{% endfor %}│   │   └── Project/              # bundles base (núcleo reutilizável)
+│   │       ├── ContentBundle/    # Gestão de conteúdo
+│   │       ├── MediaBundle/      # Uploads e galeria (Sonata Media)
+│   │       ├── SecurityAdminBundle/  # Autenticação administrativa
+│   │       ├── SecurityUserBundle/   # Entidades User/Group
+│   │       └── SettingBundle/    # Configurações da aplicação
+│   ├── Controller/               # Controllers raiz
+│   └── Kernel.php
+├── templates/                    # Templates Twig globais
+├── tests/                        # Testes (PHPUnit)
+├── translations/                 # Arquivos i18n
+├── var/                          # Cache e logs (gerado em runtime)
+├── .env                          # Variáveis de ambiente (commitável)
+├── composer.json
+├── docker-compose.yml            # Definição dos containers app/nginx/db
+├── run.sh                        # Atalho: executa comando dentro do container app
+├── start_project.sh              # Script de inicialização completo
+└── README.md                     # Este arquivo
+```
+
+### Anatomia de uma bundle gerada
+
+Cada classe modelada vira uma bundle isolada dentro de `src/Application/{{ packageName }}/`, com a seguinte estrutura padronizada:
+
+```
+<NomeDaClasse>Bundle/
+├── Admin/                        # Classes Sonata Admin (formulários, listagens, filtros)
+├── Controller/                   # AdminController, ApiController, WebController
+├── Entity/                       # Entidade Doctrine
+├── Form/                         # FormType
+├── Repository/                   # Repository Doctrine com suporte a filtros REST
+├── Resources/
+│   ├── config/                   # routes.yaml e services.yaml da bundle
+│   └── views/                    # Templates Twig (list, create, edit, show)
+├── Tests/
+└── Application<Pkg><Classe>Bundle.php  # Classe de registro da bundle
+```
+
+## Entidades geradas
+
+{% if registerBundle is empty %}
+Este projeto não declarou nenhuma classe na modelagem.
+{% else %}
+A partir do diagrama enviado ao GDS, foram geradas **{{ registerBundle|length }}** bundle(s), uma para cada entidade:
+
+| # | Entidade | Bundle | Namespace |
+|---|---|---|---|
+{% for b in registerBundle %}| {{ loop.index }} | `{{ b.className }}` | `{{ b.bundleName }}` | `App\Application\{{ b.packageName }}\{{ b.bundleName }}` |
+{% endfor %}
+Cada entidade já vem com:
+
+- **CRUD administrativo** completo no Sonata Admin (`/admin`).
+- **Endpoints REST** com suporte a filtros, ordenação e paginação (veja [Convenções da API REST](#convenções-da-api-rest)).
+- **Páginas web** públicas/autenticadas (list, create, edit, show) em Twig.
+- **Repository** com helpers de busca para os operadores REST padronizados.
+{% endif %}
+
+## Comandos úteis
+
+Todos os comandos abaixo são executados **dentro do container PHP** através do atalho `./run.sh`:
+
+```bash
+# Console do Symfony
+./run.sh bin/console <comando>
+
+# Composer
+./run.sh composer <comando>
+
+# Shell interativo dentro do container
+docker compose exec app bash
+```
+
+Comandos comuns:
+
+| Tarefa | Comando |
+|---|---|
+| Listar todas as rotas | `./run.sh bin/console debug:router` |
+| Listar serviços | `./run.sh bin/console debug:container` |
+| Rodar migrations | `./run.sh bin/console doctrine:migrations:migrate` |
+| Atualizar schema (dev) | `./run.sh bin/console doctrine:schema:update --force` |
+| Limpar cache | `./run.sh bin/console cache:clear` |
+| Criar novo admin | `./run.sh bin/console security:create-admin <user> <email> <senha>` |
+| Criar novo usuário | `./run.sh bin/console security:create-user <user> <email> <senha>` |
+| Regenerar chaves JWT | `./run.sh bin/console lexik:jwt:generate-keypair --overwrite` |
+| Rodar testes | `./run.sh vendor/bin/phpunit` |
+
+Outros comandos de manutenção do ambiente:
+
+```bash
+docker compose logs -f app          # logs em tempo real
+docker compose restart app          # reinicia só o PHP
+docker compose down                 # derruba o ambiente (preserva o volume do MySQL)
+docker compose down -v              # derruba e APAGA o banco de dados
+```
+
+## Convenções da API REST
+
+Todos os endpoints REST gerados seguem o mesmo padrão de filtros, ordenação e paginação. Os parâmetros são enviados via querystring no formato `campo[operador]=valor`.
+
+### Filtragem
+
+| Operador | Descrição | Exemplo |
+|---|---|---|
+| `igual` | Igualdade | `nome[igual]=lucas` |
+| `diferente` | Diferença | `status[diferente]=ativo` |
+| `maior` | Maior que | `preco[maior]=10` |
+| `maior_ou_igual` | Maior ou igual | `preco[maior_ou_igual]=10` |
+| `menor` | Menor que | `estoque[menor]=100` |
+| `menor_ou_igual` | Menor ou igual | `estoque[menor_ou_igual]=100` |
+| `nulo` | É nulo | `ativo[nulo]` |
+| `nao_nulo` | Não é nulo | `ativo[nao_nulo]` |
+| `comeca_com` | Começa com | `nome[comeca_com]=a` |
+| `termina_com` | Termina com | `email[termina_com]=@gmail.com` |
+| `contem` | Contém | `nome[contem]=d` |
+
+Operadores podem ser combinados livremente:
+
+```
+GET /api/usuarios?nome[igual]=lucas&sobrenome[diferente]=souza
+```
+
+### Ordenação
+
+Aplica-se via `campo[ordenar_por]=asc|desc`. Múltiplas chaves são suportadas:
+
+```
+GET /api/usuarios?id[ordenar_por]=asc&nome[ordenar_por]=desc
+```
+
+### Paginação
+
+| Parâmetro | Descrição | Default |
+|---|---|---|
+| `pagina` | Número da página | `1` |
+| `paginaTamanho` | Itens por página | `10` |
+
+```
+GET /api/usuarios?pagina=2&paginaTamanho=20
+```
+
+## Variáveis de ambiente
+
+As variáveis principais ficam em `.env` (commitável, com defaults seguros para dev) e podem ser sobrescritas por `.env.local` (não versionado).
+
+| Variável | Descrição | Default |
+|---|---|---|
+| `APP_ENV` | Ambiente Symfony (`dev`/`prod`) | `dev` |
+| `APP_SECRET` | Chave secreta do framework | gerado por projeto |
+| `DATABASE_URL` | DSN do Doctrine | `mysql://root:root@db:3306/database` |
+| `JWT_SECRET_KEY` | Caminho da chave privada JWT | `config/jwt/private.pem` |
+| `JWT_PUBLIC_KEY` | Caminho da chave pública JWT | `config/jwt/public.pem` |
+| `JWT_PASSPHRASE` | Passphrase do par JWT | gerado por projeto |
+| `CORS_ALLOW_ORIGIN` | Regex de origens permitidas | `^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$` |
+| `APP_HOST_PORT` | Porta do nginx no host | `8080` |
+| `MYSQL_HOST_PORT` | Porta do MySQL no host | `3320` |
+
+## Solução de problemas
+
+**A porta 8080 (ou 3320) já está em uso.**
+Crie um `.env.local` na raiz do projeto e defina `APP_HOST_PORT=<outra>` e/ou `MYSQL_HOST_PORT=<outra>`. Depois rode `docker compose up -d` de novo.
+
+**O `start_project.sh` falhou no meio.**
+O script é idempotente. Rode-o novamente — ele pula as etapas que já foram concluídas (banco já criado, usuário já existente, chaves JWT existentes etc).
+
+**Esqueci a senha do admin.**
+Crie um novo administrador com:
+```bash
+./run.sh bin/console security:create-admin admin admin@exemplo.com novaSenha123
+```
+
+**Quero zerar o banco e começar do zero.**
+```bash
+docker compose down -v   # apaga o volume do MySQL
+./start_project.sh       # recria tudo
+```
+
+**As permissões de `var/` ou `public/uploads/` deram problema.**
+```bash
+./run.sh chmod -R 777 /var/www/var /var/www/public/uploads
+```
+
+## Licença
+
+Distribuído sob a licença **MIT**. Veja [`LICENSE`](./LICENSE) para o texto completo.
+
+---
+
+<sub>Projeto gerado pelo **Gerador de Sistemas (GDS)** — Trabalho de Conclusão de Curso em Sistemas de Informação, Centro Universitário La Salle do Rio de Janeiro (Unilasalle-RJ), 2022. Autor: Alan Azeredo Guedes. Orientador: Prof. Msc. Mario João Junior.</sub>

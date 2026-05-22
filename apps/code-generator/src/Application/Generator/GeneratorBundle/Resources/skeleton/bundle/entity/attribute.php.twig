@@ -1,0 +1,18 @@
+{% if not attribute.nullable %}
+    #[Assert\NotNull]
+    #[Assert\NotBlank]
+{% endif %}
+{% if ( attribute.typeDoctrine is same as("string") or attribute.type is same as("text") ) and ( ( attribute.lengthMin ) or ( attribute.lengthMax ) ) %}
+    #[Assert\Length({% if attribute.lengthMin %}min: {{ attribute.lengthMin }},{% endif %}{% if attribute.lengthMax  %} max: {{ attribute.lengthMax }}{% endif %})]
+{% endif %}
+{% if attribute.typeDoctrine is same as("date") %}
+    #[Assert\Date]
+{% endif %}
+{% if attribute.typeDoctrine is same as("datetime") or attribute.typeDoctrine is same as("datetimetz") %}
+    ##[Assert\DateTime]
+{% endif %}
+{% if attribute.typeDoctrine is same as("time") %}
+    #[Assert\Time]
+{% endif %}
+    #[ORM\Column(name: '{{ attribute.attributeName }}', type: '{{ attribute.typeDoctrine }}'{% if attribute.typeDoctrine is same as("string") or attribute.typeDoctrine is same as("text")  %}{% if attribute.lengthMax %}, length: {{ attribute.lengthMax }}{% endif %}{% endif %}{% if attribute.typeDoctrine is same as("decimal") %}{% if attribute.precision %}, precision: {{ attribute.precision }}{% endif %}{% if attribute.scale %}, scale: {{ attribute.scale }}{% endif %}{% endif %}{% if attribute.unique %}, unique: true{% else %}, unique: false{% endif %}{% if attribute.nullable %}, nullable: true{% else %}, nullable: false{% endif %})]
+    private {% if attribute.nullable %}?{% endif %}{{ attribute.typePhp }} ${{ attribute.attributeName }}{% if attribute.nullable %} = null{% endif %};

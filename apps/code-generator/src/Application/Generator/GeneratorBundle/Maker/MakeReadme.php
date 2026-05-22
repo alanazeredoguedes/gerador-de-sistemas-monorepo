@@ -1,0 +1,66 @@
+<?php
+
+namespace App\Application\Generator\GeneratorBundle\Maker;
+
+use App\Application\Generator\GeneratorBundle\Helper\TwigHelper;
+use Twig\Error\LoaderError;
+use Twig\Error\RuntimeError;
+use Twig\Error\SyntaxError;
+
+class MakeReadme
+{
+
+    protected string $filePath = "/README.md";
+    protected string $template = "/readme.md.twig";
+
+    public function __construct(
+        protected string $projectDirectory,
+        protected TwigHelper $twigHelper,
+        protected string $projectName,
+        protected string $projectDescription,
+        protected string $userName = '',
+        protected string $email = '',
+        protected string $password = '',
+        protected array $registerBundle = [],
+        protected string $packageName = 'App',
+    )
+    {
+        $this->filePath = $this->projectDirectory . $this->filePath;
+        $this->validate();
+        $this->filter();
+    }
+
+    public function validate()
+    {
+
+    }
+
+    public function filter()
+    {
+
+    }
+
+    public function make()
+    {
+        //chmod( $this->filePath, 0777);
+        file_put_contents($this->filePath, $this->getTemplate());
+    }
+
+    /**
+     * @throws SyntaxError
+     * @throws RuntimeError
+     * @throws LoaderError
+     */
+    public function getTemplate(): string
+    {
+        return $this->twigHelper->getTwig()->render($this->template,[
+            'projectName' => $this->projectName,
+            'projectDescription' => $this->projectDescription,
+            'userName' => $this->userName,
+            'email' => $this->email,
+            'password' => $this->password,
+            'registerBundle' => $this->registerBundle,
+            'packageName' => $this->packageName,
+        ]);
+    }
+}

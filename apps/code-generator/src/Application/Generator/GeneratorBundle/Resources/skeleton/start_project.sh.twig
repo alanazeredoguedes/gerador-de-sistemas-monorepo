@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Inicializa o projeto gerado:
+#   1. sobe os containers (build inicial pode demorar);
+#   2. espera o MySQL responder;
+#   3. instala dependências, prepara schema, cria usuários e limpa cache.
+# Idempotente — pode rodar mais de uma vez.
+set -euo pipefail
+
+cd "$(dirname "$0")"
+
+echo "[start_project] subindo containers (docker compose up -d --build)…"
+docker compose up -d --build
+
+echo "[start_project] aguardando container app responder…"
+for i in $(seq 1 30); do
+    if docker compose exec -T app true >/dev/null 2>&1; then break; fi
+    sleep 1
+    if [ "$i" = "30" ]; then
+        echo "[start_project] container app não está acessível. Veja: docker compose logs app" >&2
+        exit 1
+    fi
+done
+
+echo "[start_project] aguardando MySQL ficar pronto…"
+for i in $(seq 1 60); do
+    if docker compose exec -T db mysqladmin ping -h 127.0.0.1 -uroot -proot --silent >/dev/null 2>&1; then
+        echo "[start_project] MySQL OK."
+        break
+    fi
+    sleep 2
+    if [ "$i" = "60" ]; then
+        echo "[start_project] MySQL não respondeu em 120s. Abortando." >&2
+        exit 1
+    fi
+done
+
+# Instala as dependências do projeto
+./run.sh composer install --no-interaction --prefer-dist
+
+# Gera chaves públicas/privadas para uso na aplicação - API Lexik
+./run.sh bin/console lexik:jwt:generate-keypair --skip-if-exists --no-interaction
+
+# Da permissão de escrita e leitura nas pastas mutáveis do Symfony
+./run.sh chmod -R 777 /var/www/var /var/www/public/uploads || true
+
+# Cria o banco de dados (idempotente)
+./run.sh bin/console doctrine:database:create --if-not-exists --no-interaction
+
+# Monta schema no banco de dados
+./run.sh bin/console doctrine:schema:update --force --no-interaction
+
+# Cria usuário administrador
+./run.sh bin/console security:create-admin {{ userName }} {{ email }} {{ password }} --no-interaction || true
+
+# Cria usuário padrão
+./run.sh bin/console security:create-user {{ userName }} {{ email }} {{ password }} --no-interaction || true
+
+# Faz instalação dos assets
+./run.sh bin/console assets:install --no-interaction
+
+# Limpa o cache do projeto
+./run.sh bin/console cache:clear --no-interaction
+
+echo
+echo "[start_project] Pronto! App disponível em http://localhost:${APP_HOST_PORT:-8080}"
+echo "[start_project] MySQL exposto no host em ${MYSQL_HOST_PORT:-3320}."

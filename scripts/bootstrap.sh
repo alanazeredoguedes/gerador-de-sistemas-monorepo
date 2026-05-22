@@ -23,7 +23,7 @@ dc() { docker compose "$@"; }
 exec_back()    { dc exec -T back-app bash -lc "$1"; }
 exec_codegen() { dc exec -T codegen-app bash -lc "$1"; }
 
-# --------- 1) Arquivo .env ---------
+# --------- 1) Arquivos .env (monorepo + apps Symfony) ---------
 step "Verificando .env do monorepo"
 if [[ ! -f .env ]]; then
     cp .env.example .env
@@ -31,6 +31,22 @@ if [[ ! -f .env ]]; then
 else
     ok ".env já existe"
 fi
+
+# As apps Symfony (back / code-generator) precisam de um .env local porque o
+# Dotenv tenta lê-lo no boot. O docker-compose já injeta as variáveis sensíveis
+# via `environment:`, mas o arquivo precisa existir em disco.
+for app in apps/back apps/code-generator; do
+    if [[ ! -f "$app/.env" ]]; then
+        if [[ -f "$app/.env.example" ]]; then
+            cp "$app/.env.example" "$app/.env"
+            ok "$app/.env criado a partir de $app/.env.example"
+        else
+            fail "$app/.env.example não encontrado — não consigo criar $app/.env"
+        fi
+    else
+        ok "$app/.env já existe"
+    fi
+done
 
 # --------- 2) Sobe MySQL ---------
 step "Subindo MySQL e aguardando ficar saudável"

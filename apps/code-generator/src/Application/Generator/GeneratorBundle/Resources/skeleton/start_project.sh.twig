@@ -1,66 +1,142 @@
 #!/usr/bin/env bash
-# Inicializa o projeto gerado:
-#   1. sobe os containers (build inicial pode demorar);
-#   2. espera o MySQL responder;
-#   3. instala dependências, prepara schema, cria usuários e limpa cache.
-# Idempotente — pode rodar mais de uma vez.
+# =============================================================================
+#  Projeto gerado pelo GDS — Gerador de Sistemas
+#  Ponto de entrada único: depois de clonar/baixar o projeto, rode
+#  `./start_project.sh` e o ambiente sobe inteiro (containers, banco, schema,
+#  usuários, JWT, assets e cache).
+#  Idempotente — pode rodar quantas vezes precisar.
+# =============================================================================
 set -euo pipefail
 
 cd "$(dirname "$0")"
 
-echo "[start_project] subindo containers (docker compose up -d --build)…"
-docker compose up -d --build
+# --------- helpers ---------
+c_green()  { printf '\033[0;32m%s\033[0m\n' "$*"; }
+c_yellow() { printf '\033[0;33m%s\033[0m\n' "$*"; }
+c_blue()   { printf '\033[0;34m%s\033[0m\n' "$*"; }
+c_red()    { printf '\033[0;31m%s\033[0m\n' "$*"; }
 
-echo "[start_project] aguardando container app responder…"
+step() { c_blue ""; c_blue "==> $*"; }
+ok()   { c_green "    ✓ $*"; }
+warn() { c_yellow "    ! $*"; }
+fail() { c_red   "    ✗ $*"; exit 1; }
+
+dc()       { docker compose "$@"; }
+in_app()   { dc exec -T app bash -lc "$1"; }
+
+# --------- 0) Pré-checagem: docker e docker compose v2 ---------
+if ! command -v docker >/dev/null 2>&1; then
+    c_red "Docker não encontrado no PATH."
+    c_yellow "  → instale em: https://docs.docker.com/get-docker/"
+    exit 1
+fi
+
+if ! docker compose version >/dev/null 2>&1; then
+    c_red "Plugin 'docker compose' (v2) não encontrado."
+    c_yellow "  → instale o pacote 'docker-compose-plugin' ou atualize o Docker Desktop."
+    exit 1
+fi
+
+if ! docker info >/dev/null 2>&1; then
+    c_red "Docker daemon não está respondendo."
+    c_yellow "  → inicie o serviço: sudo systemctl start docker (ou abra o Docker Desktop)"
+    exit 1
+fi
+
+# --------- 1) Sobe os containers ---------
+step "Subindo containers (app, nginx, db)"
+dc up -d --build
+ok "containers em execução"
+
+# --------- 2) Aguarda app responder ---------
+step "Aguardando container app aceitar exec"
 for i in $(seq 1 30); do
-    if docker compose exec -T app true >/dev/null 2>&1; then break; fi
+    if dc exec -T app true >/dev/null 2>&1; then
+        ok "container app pronto"
+        break
+    fi
     sleep 1
     if [ "$i" = "30" ]; then
-        echo "[start_project] container app não está acessível. Veja: docker compose logs app" >&2
-        exit 1
+        fail "container app não respondeu em 30s. Veja: docker compose logs app"
     fi
 done
 
-echo "[start_project] aguardando MySQL ficar pronto…"
+# --------- 3) Aguarda MySQL responder ---------
+step "Aguardando MySQL aceitar conexões"
 for i in $(seq 1 60); do
-    if docker compose exec -T db mysqladmin ping -h 127.0.0.1 -uroot -proot --silent >/dev/null 2>&1; then
-        echo "[start_project] MySQL OK."
+    if dc exec -T db mysqladmin ping -h 127.0.0.1 -uroot -p"${MYSQL_ROOT_PASSWORD:-root}" --silent >/dev/null 2>&1; then
+        ok "MySQL pronto"
         break
     fi
     sleep 2
     if [ "$i" = "60" ]; then
-        echo "[start_project] MySQL não respondeu em 120s. Abortando." >&2
-        exit 1
+        fail "MySQL não respondeu em 120s. Veja: docker compose logs db"
     fi
 done
 
-# Instala as dependências do projeto
-./run.sh composer install --no-interaction --prefer-dist
+# --------- 4) Composer install ---------
+step "composer install"
+if in_app "[ -d vendor ] && [ -f vendor/autoload.php ]"; then
+    ok "vendor já presente — pulando"
+else
+    in_app "composer install --no-interaction --no-progress --prefer-dist"
+    ok "vendor instalado"
+fi
 
-# Gera chaves públicas/privadas para uso na aplicação - API Lexik
-./run.sh bin/console lexik:jwt:generate-keypair --skip-if-exists --no-interaction
+# --------- 5) JWT keypair ---------
+step "Gerando JWT keypair (skip se já existir)"
+if in_app "[ -f config/jwt/private.pem ] && [ -f config/jwt/public.pem ]"; then
+    ok "keypair já existe"
+else
+    in_app "bin/console lexik:jwt:generate-keypair --skip-if-exists --no-interaction"
+    ok "keypair gerado"
+fi
 
-# Da permissão de escrita e leitura nas pastas mutáveis do Symfony
-./run.sh chmod -R 777 /var/www/var /var/www/public/uploads || true
+# --------- 6) Diretórios mutáveis ---------
+step "Garantindo diretórios mutáveis (var/, public/uploads/)"
+# `public/uploads/media` é exigido pelo Sonata Media; criar antes evita o erro
+# "directory does not exist" em máquina nova ou após `docker compose down -v`.
+in_app "mkdir -p var public/uploads/media && chmod -R 0777 var public/uploads" >/dev/null
+ok "diretórios prontos"
 
-# Cria o banco de dados (idempotente)
-./run.sh bin/console doctrine:database:create --if-not-exists --no-interaction
+# --------- 7) Banco: create + schema ---------
+step "Banco de dados: create + schema update"
+in_app "bin/console doctrine:database:create --if-not-exists --no-interaction" >/dev/null
+in_app "bin/console doctrine:schema:update --force --no-interaction"          >/dev/null
+ok "schema atualizado"
 
-# Monta schema no banco de dados
-./run.sh bin/console doctrine:schema:update --force --no-interaction
+# --------- 8) Usuários admin + user ---------
+step "Criando usuários (admin + user)"
+# `|| true` para que rodadas subsequentes não quebrem caso o usuário já exista.
+in_app "bin/console security:create-admin {{ userName }} {{ email }} {{ password }} --no-interaction" || true
+in_app "bin/console security:create-user  {{ userName }} {{ email }} {{ password }} --no-interaction" || true
+ok "usuários prontos"
 
-# Cria usuário administrador
-./run.sh bin/console security:create-admin {{ userName }} {{ email }} {{ password }} --no-interaction || true
+# --------- 9) Assets + cache ---------
+step "assets:install + cache:clear"
+in_app "bin/console assets:install --symlink --no-interaction" >/dev/null
+in_app "bin/console cache:clear --no-interaction"              >/dev/null
+ok "assets e cache OK"
 
-# Cria usuário padrão
-./run.sh bin/console security:create-user {{ userName }} {{ email }} {{ password }} --no-interaction || true
+# --------- 10) Resumo ---------
+step "Resumo"
+dc ps
 
-# Faz instalação dos assets
-./run.sh bin/console assets:install --no-interaction
+cat <<EOF
 
-# Limpa o cache do projeto
-./run.sh bin/console cache:clear --no-interaction
+$(c_green "Projeto pronto.")
 
-echo
-echo "[start_project] Pronto! App disponível em http://localhost:${APP_HOST_PORT:-8080}"
-echo "[start_project] MySQL exposto no host em ${MYSQL_HOST_PORT:-3320}."
+  Aplicação web         → http://localhost:${APP_HOST_PORT:-8080}
+  Painel admin (Sonata) → http://localhost:${APP_HOST_PORT:-8080}/admin
+  API REST              → http://localhost:${APP_HOST_PORT:-8080}/api
+  MySQL                 → localhost:${MYSQL_HOST_PORT:-3320}  (user root)
+
+Login default:
+  admin → {{ email }} / {{ password }}
+  user  → {{ email }} / {{ password }}
+
+Logs em tempo real:    docker compose logs -f
+Shell no container:    docker compose exec app bash
+Comandos do Symfony:   ./run.sh bin/console <cmd>
+
+EOF

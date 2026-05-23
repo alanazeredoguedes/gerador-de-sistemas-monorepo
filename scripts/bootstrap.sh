@@ -97,6 +97,14 @@ ok "schema atualizado"
 
 # --------- 7) Cria admin + user ---------
 step "back: gds:bootstrap (admin + user)"
+# Garante que os diretórios usados pelo Sonata Media existam ANTES de qualquer
+# operação que escreva binário (logos de PHP/Symfony no seed). A config do
+# Sonata também cria sob demanda (create: true), mas mantemos esse mkdir
+# defensivo para o cenário de cache antigo / volume novo.
+exec_back "mkdir -p public/uploads/media && chmod -R 0777 public/uploads"
+# Limpa o cache do container antes do bootstrap para garantir que mudanças em
+# config/packages/sonata_media.yaml (ex.: create:true) já estejam compiladas.
+exec_back "bin/console cache:clear --no-interaction" >/dev/null
 exec_back "bin/console gds:bootstrap --no-interaction"
 ok "usuários prontos"
 

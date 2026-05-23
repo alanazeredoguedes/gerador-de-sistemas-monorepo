@@ -29,7 +29,10 @@ sonata_media:
     filesystem:
         local:
             directory: '%kernel.project_dir%/public/uploads/media'
-            create: false
+            # Cria o diretório no boot do filesystem (Gaufrette Local) se ainda
+            # não existir. Sem isso, qualquer comando que toque mídia (incl.
+            # gds:bootstrap em máquina nova) quebra com "directory does not exist".
+            create: true
 
 #    providers:
 #        file:
